@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+backend/venv/
+__pycache__/
+*.pyc
+
+# Environment
+backend/.env
+.env
+
+# Logs & PIDs
+logs/
+.pids/
+
+# IDE
+.vscode/
+.idea/
+
+# Next.js
+frontend/.next/
+frontend/out/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test files
+test_*.py

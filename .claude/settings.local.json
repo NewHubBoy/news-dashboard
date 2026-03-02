@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd frontend:*)",
+      "Bash(rm:*)",
+      "Bash(echo:*)",
+      "Bash(chmod +x:*)",
+      "Bash(cat:*)",
+      "Bash(cd backend:*)",
+      "Bash(.:*)",
+      "Bash(cd:*)",
+      "Bash(ls:*)",
+      "Bash(find:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)"
+    ]
+  }
+}
