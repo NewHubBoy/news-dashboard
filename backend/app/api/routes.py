@@ -77,7 +77,9 @@ def get_all_searched_stocks(db: Session = Depends(get_db)):
         {
             "stock_code": stock.stock_code,
             "stock_name": stock.stock_name,
-            "last_searched": stock.last_searched.isoformat() if stock.last_searched else None,
+            "last_searched": (
+                stock.last_searched.isoformat() if stock.last_searched else None
+            ),
         }
         for stock in stocks
     ]
@@ -90,9 +92,7 @@ async def get_stock_full_history(stock_code: str, db: Session = Depends(get_db))
 
     # 获取股票名称
     first_article = (
-        db.query(NewsArticle)
-        .filter(NewsArticle.stock_code == stock_code)
-        .first()
+        db.query(NewsArticle).filter(NewsArticle.stock_code == stock_code).first()
     )
     stock_name = first_article.stock_name if first_article else stock_code
 
@@ -197,3 +197,50 @@ async def analyze_news_with_agent(
         return AgentAnalyzeResponse(analysis_result=analysis_result, cached=False)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/agent/analyze/stream")
+async def analyze_news_stream(
+    request: AgentAnalyzeRequest, db: Session = Depends(get_db)
+):
+    """SSE 流式分析 — 实时推送 Agent 工作状态"""
+    from fastapi.responses import StreamingResponse
+    from datetime import datetime
+    from app.models.news import AIAnalysisResult
+    import json
+
+    async def event_generator():
+        # 检查缓存
+        if not request.bypass_cache:
+            today = datetime.now().date()
+            cached_analysis = (
+                db.query(AIAnalysisResult)
+                .filter(
+                    AIAnalysisResult.stock_code == request.stock_code,
+                    AIAnalysisResult.created_at >= today,
+                )
+                .first()
+            )
+            if cached_analysis:
+                yield f"event: result\ndata: {json.dumps({'analysis_result': cached_analysis.analysis_content, 'cached': True}, ensure_ascii=False)}\n\n"
+                yield "event: done\ndata: \n\n"
+                return
+
+        # 流式分析
+        async for chunk in agent_service.analyze_streaming(
+            stock_code=request.stock_code,
+            stock_name=request.stock_name,
+            data=request,
+            db=db,
+        ):
+            yield chunk
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )

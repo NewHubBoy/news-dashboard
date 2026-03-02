@@ -6,7 +6,7 @@ import NewsList from '@/components/NewsList';
 import AIAnalysis from '@/components/AIAnalysis';
 import {
   searchStockNews,
-  analyzeNews,
+  analyzeNewsStream,
   getSearchedStocks,
   getStockHistory,
   getStockAnalysis,
@@ -14,6 +14,12 @@ import {
   IntegratedSearchResponse,
   SearchedStock,
 } from '@/services/api';
+
+interface AgentStep {
+  step: number;
+  total: number;
+  message: string;
+}
 
 // 清理 AI 分析结果中的无用标签
 const cleanAnalysisResult = (text: string | null): string | null => {
@@ -43,6 +49,7 @@ export default function Home() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [analysisCached, setAnalysisCached] = useState(false);
   const [analysisUpdatedAt, setAnalysisUpdatedAt] = useState<string | null>(null);
+  const [agentSteps, setAgentSteps] = useState<AgentStep[]>([]);
 
   // Load stock list on mount
   useEffect(() => {
@@ -66,6 +73,7 @@ export default function Home() {
     setSearchData(null);
     setAnalysisCached(false);
     setAnalysisUpdatedAt(null);
+    setAgentSteps([]);
     setSelectedStock({ stock_code: stockCode, stock_name: stockName, last_searched: new Date().toISOString() });
 
     try {
@@ -79,22 +87,34 @@ export default function Home() {
       // Refresh stock list to include the new search
       await loadStockList();
 
-      // Start AI Analysis automatically after fetching news
+      // Start AI Analysis automatically after fetching news (streaming)
       if (response.articles.length > 0) {
         setIsAnalysisLoading(true);
+        setAgentSteps([]);
         try {
-          const aiResponse = await analyzeNews({
-            stock_code: stockCode,
-            stock_name: stockName,
-            articles: response.articles,
-            announcements: response.announcements,
-            disclosures: response.disclosures,
-            reports: response.reports,
-            financial_data: response.financial_data,
-          });
-          setAnalysisResult(cleanAnalysisResult(aiResponse.analysis_result));
-          setAnalysisCached(aiResponse.cached);
-          setAnalysisUpdatedAt(new Date().toISOString());
+          await analyzeNewsStream(
+            {
+              stock_code: stockCode,
+              stock_name: stockName,
+              articles: response.articles,
+              announcements: response.announcements,
+              disclosures: response.disclosures,
+              reports: response.reports,
+              financial_data: response.financial_data,
+            },
+            {
+              onStatus: (data) => setAgentSteps(prev => {
+                const exists = prev.find(s => s.step === data.step && s.message === data.message);
+                return exists ? prev : [...prev, data];
+              }),
+              onResult: (data) => {
+                setAnalysisResult(cleanAnalysisResult(data.analysis_result));
+                setAnalysisCached(data.cached);
+                setAnalysisUpdatedAt(new Date().toISOString());
+              },
+              onError: (err) => setAnalysisError(err),
+            }
+          );
         } catch (aiErr) {
           setAnalysisError(aiErr instanceof Error ? aiErr.message : 'AI分析失败');
         } finally {
@@ -159,23 +179,35 @@ export default function Home() {
       setArticles(response.articles);
       setSearchData(response);
 
-      // Refresh AI analysis (bypass cache)
+      // Refresh AI analysis (bypass cache, streaming)
       if (response.articles.length > 0) {
         setIsAnalysisLoading(true);
+        setAgentSteps([]);
         try {
-          const aiResponse = await analyzeNews({
-            stock_code: selectedStock.stock_code,
-            stock_name: selectedStock.stock_name,
-            articles: response.articles,
-            announcements: response.announcements,
-            disclosures: response.disclosures,
-            reports: response.reports,
-            financial_data: response.financial_data,
-            bypass_cache: true,  // 绕过缓存，强制重新分析
-          });
-          setAnalysisResult(cleanAnalysisResult(aiResponse.analysis_result));
-          setAnalysisCached(aiResponse.cached);
-          setAnalysisUpdatedAt(new Date().toISOString());
+          await analyzeNewsStream(
+            {
+              stock_code: selectedStock.stock_code,
+              stock_name: selectedStock.stock_name,
+              articles: response.articles,
+              announcements: response.announcements,
+              disclosures: response.disclosures,
+              reports: response.reports,
+              financial_data: response.financial_data,
+              bypass_cache: true,
+            },
+            {
+              onStatus: (data) => setAgentSteps(prev => {
+                const exists = prev.find(s => s.step === data.step && s.message === data.message);
+                return exists ? prev : [...prev, data];
+              }),
+              onResult: (data) => {
+                setAnalysisResult(cleanAnalysisResult(data.analysis_result));
+                setAnalysisCached(data.cached);
+                setAnalysisUpdatedAt(new Date().toISOString());
+              },
+              onError: (err) => setAnalysisError(err),
+            }
+          );
         } catch (aiErr) {
           setAnalysisError(aiErr instanceof Error ? aiErr.message : 'AI分析失败');
         } finally {
@@ -268,11 +300,10 @@ export default function Home() {
                   <li key={stock.stock_code}>
                     <button
                       onClick={() => handleSelectStock(stock)}
-                      className={`w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors ${
-                        selectedStock?.stock_code === stock.stock_code
-                          ? 'bg-blue-50 border-l-4 border-blue-600'
-                          : ''
-                      }`}
+                      className={`w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors ${selectedStock?.stock_code === stock.stock_code
+                        ? 'bg-blue-50 border-l-4 border-blue-600'
+                        : ''
+                        }`}
                     >
                       <div className="flex items-center justify-between">
                         <div>
@@ -315,6 +346,7 @@ export default function Home() {
                   result={analysisResult}
                   cached={analysisCached}
                   updatedAt={analysisUpdatedAt ?? undefined}
+                  agentSteps={agentSteps}
                 />
 
                 <NewsList

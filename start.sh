@@ -75,11 +75,11 @@ start_backend() {
     source venv/bin/activate
     pip install -q -r requirements.txt 2>/dev/null
 
-    nohup uvicorn app.main:app --reload --port 8000 \
+    nohup uvicorn app.main:app --reload --port 8110 \
         > "$LOG_DIR/backend.log" 2>&1 &
     echo $! > "$PID_DIR/backend.pid"
 
-    log_info "后端已启动 → http://localhost:8000  (PID: $!, 日志: logs/backend.log)"
+    log_info "后端已启动 → http://localhost:8110  (PID: $!, 日志: logs/backend.log)"
 }
 
 # ---------- 启动前端 ----------
@@ -189,7 +189,7 @@ start_all() {
     echo -e "${GREEN}  ✅ 所有服务已在后台启动！${NC}"
     echo -e "${GREEN}═══════════════════════════════════════${NC}"
     echo -e "  前端:     ${CYAN}http://localhost:3000${NC}"
-    echo -e "  后端 API: ${CYAN}http://localhost:8000/docs${NC}"
+    echo -e "  后端 API: ${CYAN}http://localhost:8110/docs${NC}"
     echo -e "  日志目录: ${CYAN}$LOG_DIR/${NC}"
     echo ""
 }

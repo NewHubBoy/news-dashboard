@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8110';
 
 export interface StockSearchRequest {
   stock_code: string;
@@ -79,6 +79,60 @@ export const getStockNewsHistory = async (stockCode: string): Promise<Integrated
   return response.json();
 };
 
+export const analyzeNewsStream = async (
+  request: AgentAnalyzeRequest,
+  callbacks: {
+    onStatus: (data: { step: number; total: number; message: string }) => void;
+    onResult: (data: AgentAnalyzeResponse) => void;
+    onError: (error: string) => void;
+  }
+): Promise<void> => {
+  const response = await fetch(`${API_BASE_URL}/api/agent/analyze/stream`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok || !response.body) {
+    throw new Error('Failed to start AI analysis stream');
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    let currentEvent = '';
+    for (const line of lines) {
+      if (line.startsWith('event: ')) {
+        currentEvent = line.slice(7).trim();
+      } else if (line.startsWith('data: ')) {
+        const rawData = line.slice(6).replace(/\\n/g, '\n');
+        try {
+          if (currentEvent === 'status') {
+            callbacks.onStatus(JSON.parse(rawData));
+          } else if (currentEvent === 'result') {
+            callbacks.onResult(JSON.parse(rawData));
+          } else if (currentEvent === 'error') {
+            callbacks.onError(rawData);
+          }
+        } catch {
+          // ignore parse errors
+        }
+        currentEvent = '';
+      }
+    }
+  }
+};
+
+// 保留旧的非流式接口作为 fallback
 export const analyzeNews = async (request: AgentAnalyzeRequest): Promise<AgentAnalyzeResponse> => {
   const response = await fetch(`${API_BASE_URL}/api/agent/analyze`, {
     method: 'POST',

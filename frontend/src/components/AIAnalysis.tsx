@@ -2,15 +2,22 @@ import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
+interface AgentStep {
+    step: number;
+    total: number;
+    message: string;
+}
+
 interface AIAnalysisProps {
     isLoading: boolean;
     error: string | null;
     result: string | null;
     cached?: boolean;
     updatedAt?: string;
+    agentSteps?: AgentStep[];
 }
 
-export default function AIAnalysis({ isLoading, error, result, cached, updatedAt }: AIAnalysisProps) {
+export default function AIAnalysis({ isLoading, error, result, cached, updatedAt, agentSteps = [] }: AIAnalysisProps) {
     if (!isLoading && !error && !result) {
         return null;
     }
@@ -30,16 +37,14 @@ export default function AIAnalysis({ isLoading, error, result, cached, updatedAt
         for (const pattern of reportStartPatterns) {
             const match = cleaned.match(pattern);
             if (match && match.index !== undefined) {
-                // 从真正报告开始的位置截取，保留所有 Markdown 格式
                 cleaned = cleaned.slice(match.index);
                 break;
             }
         }
 
-        // 清理开头的无用标签（只清理纯标签，不破坏 Markdown）
         const startTagPatterns = [
-            /^[分析总结评估建议备注说明报告结果]+[：:：]\s*\n?/,  // "分析：" 或 "分析:" 开头
-            /^[分析总结评估建议备注说明报告结果]+\s*\n?/,          // 纯标签开头
+            /^[分析总结评估建议备注说明报告结果]+[：:：]\s*\n?/,
+            /^[分析总结评估建议备注说明报告结果]+\s*\n?/,
         ];
 
         for (const pattern of startTagPatterns) {
@@ -50,17 +55,13 @@ export default function AIAnalysis({ isLoading, error, result, cached, updatedAt
             }
         }
 
-        // 清理结尾的无用标签（只检查最后一行）
         const lines = cleaned.split('\n');
         if (lines.length > 0) {
             const lastLine = lines[lines.length - 1].trim();
-
-            // 如果最后一行是纯标签（不包含 Markdown 内容），移除它
             const tagPatterns = [
-                /^[分析总结评估建议备注说明]+[。。，、；：,;]?$/,  // 纯标签+可选标点
-                /^[分析总结评估建议备注说明]+$/,                   // 纯标签
+                /^[分析总结评估建议备注说明]+[。。，、；：,;]?$/,
+                /^[分析总结评估建议备注说明]+$/,
             ];
-
             if (lastLine && tagPatterns.some(pattern => pattern.test(lastLine))) {
                 lines.pop();
                 cleaned = lines.join('\n').trim();
@@ -82,6 +83,17 @@ export default function AIAnalysis({ isLoading, error, result, cached, updatedAt
         if (diffHours < 24) return `${diffHours}小时前`;
         return date.toLocaleDateString('zh-CN');
     };
+
+    // 全部四步的定义
+    const allSteps = [
+        { step: 1, label: '事实提取' },
+        { step: 2, label: '深度分析' },
+        { step: 3, label: '质量审查' },
+        { step: 4, label: '报告生成' },
+    ];
+
+    const currentMaxStep = agentSteps.length > 0 ? Math.max(...agentSteps.map(s => s.step)) : 0;
+    const latestMessage = agentSteps.length > 0 ? agentSteps[agentSteps.length - 1].message : '';
 
     return (
         <div className="bg-white rounded-lg shadow-md p-6 mb-8 border border-blue-100">
@@ -112,9 +124,61 @@ export default function AIAnalysis({ isLoading, error, result, cached, updatedAt
             </div>
 
             {isLoading && (
-                <div className="flex flex-col items-center justify-center py-8">
-                    <div className="w-10 h-10 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mb-4"></div>
-                    <p className="text-gray-500">正在分析最新数据，生成专业投资建议...</p>
+                <div className="py-4">
+                    {/* 步骤进度条 */}
+                    <div className="flex items-center gap-1 mb-5">
+                        {allSteps.map((s, i) => {
+                            const isCompleted = currentMaxStep > s.step;
+                            const isCurrent = currentMaxStep === s.step;
+                            return (
+                                <div key={s.step} className="flex items-center flex-1">
+                                    <div className="flex flex-col items-center flex-1">
+                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-500 ${isCompleted
+                                                ? 'bg-green-500 text-white'
+                                                : isCurrent
+                                                    ? 'bg-blue-500 text-white animate-pulse'
+                                                    : 'bg-gray-200 text-gray-400'
+                                            }`}>
+                                            {isCompleted ? '✓' : s.step}
+                                        </div>
+                                        <span className={`text-xs mt-1 ${isCompleted ? 'text-green-600' : isCurrent ? 'text-blue-600 font-medium' : 'text-gray-400'
+                                            }`}>
+                                            {s.label}
+                                        </span>
+                                    </div>
+                                    {i < allSteps.length - 1 && (
+                                        <div className={`h-0.5 flex-1 mx-1 transition-all duration-500 ${isCompleted ? 'bg-green-400' : 'bg-gray-200'
+                                            }`} />
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    {/* 当前状态消息 */}
+                    {latestMessage ? (
+                        <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
+                            <div className="w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin shrink-0"></div>
+                            <span className="text-sm text-blue-700">{latestMessage}</span>
+                        </div>
+                    ) : (
+                        <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                            <div className="w-5 h-5 border-2 border-gray-300 border-t-transparent rounded-full animate-spin shrink-0"></div>
+                            <span className="text-sm text-gray-500">正在启动 AI Agent 分析流水线...</span>
+                        </div>
+                    )}
+
+                    {/* 历史步骤日志 */}
+                    {agentSteps.length > 1 && (
+                        <div className="mt-3 space-y-1">
+                            {agentSteps.slice(0, -1).map((s, i) => (
+                                <div key={i} className="flex items-center gap-2 text-xs text-gray-400">
+                                    <span className="text-green-500">✓</span>
+                                    <span>{s.message}</span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
             )}
 
