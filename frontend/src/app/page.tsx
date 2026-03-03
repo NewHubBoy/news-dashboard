@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import SearchForm from '@/components/SearchForm';
 import NewsList from '@/components/NewsList';
 import AIAnalysis from '@/components/AIAnalysis';
+import { ThemeToggle } from '@/components/theme-toggle';
+import { Button } from '@/components/ui/button';
 import {
   searchStockNews,
   analyzeNewsStream,
@@ -241,24 +243,25 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen bg-gray-50 flex flex-col">
+    <main className="min-h-screen bg-background flex flex-col">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 px-6 py-4">
+      <header className="bg-card border-b px-6 py-4">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900">
+          <h1 className="text-2xl font-bold">
             股票新闻资讯看板
           </h1>
           <div className="flex items-center gap-4">
+            <ThemeToggle />
             {selectedStock && (
-              <button
+              <Button
                 onClick={handleRefresh}
                 disabled={isRefreshing}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm"
+                size="sm"
                 title="重新获取最新数据，包括AI分析"
               >
                 {isRefreshing ? (
                   <>
-                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                    <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                     </svg>
@@ -266,13 +269,13 @@ export default function Home() {
                   </>
                 ) : (
                   <>
-                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                     </svg>
                     强制刷新
                   </>
                 )}
-              </button>
+              </Button>
             )}
           </div>
         </div>
@@ -281,18 +284,18 @@ export default function Home() {
       {/* Main Content */}
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
-        <aside className="w-64 bg-white border-r border-gray-200 overflow-y-auto">
+        <aside className="w-64 bg-card border-r overflow-y-auto">
           <div className="p-4">
             <SearchForm onSearch={handleSearch} isLoading={isLoading} />
           </div>
 
-          <div className="border-t border-gray-200">
-            <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
-              <h2 className="text-sm font-semibold text-gray-700">搜索历史</h2>
+          <div className="border-t">
+            <div className="px-4 py-3 bg-muted border-b">
+              <h2 className="text-sm font-semibold">搜索历史</h2>
             </div>
-            <ul className="divide-y divide-gray-100">
+            <ul className="divide-y">
               {stockList.length === 0 ? (
-                <li className="px-4 py-8 text-center text-gray-400 text-sm">
+                <li className="px-4 py-8 text-center text-muted-foreground text-sm">
                   暂无搜索记录
                 </li>
               ) : (
@@ -300,17 +303,17 @@ export default function Home() {
                   <li key={stock.stock_code}>
                     <button
                       onClick={() => handleSelectStock(stock)}
-                      className={`w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors ${selectedStock?.stock_code === stock.stock_code
-                        ? 'bg-blue-50 border-l-4 border-blue-600'
+                      className={`w-full px-4 py-3 text-left hover:bg-muted transition-colors ${selectedStock?.stock_code === stock.stock_code
+                        ? 'bg-primary/10 border-l-4 border-primary'
                         : ''
                         }`}
                     >
                       <div className="flex items-center justify-between">
                         <div>
-                          <div className="font-medium text-gray-900">{stock.stock_name}</div>
-                          <div className="text-sm text-gray-500">{stock.stock_code}</div>
+                          <div className="font-medium">{stock.stock_name}</div>
+                          <div className="text-sm text-muted-foreground">{stock.stock_code}</div>
                         </div>
-                        <div className="text-xs text-gray-400">
+                        <div className="text-xs text-muted-foreground">
                           {formatLastSearched(stock.last_searched)}
                         </div>
                       </div>
@@ -326,8 +329,8 @@ export default function Home() {
         <div className="flex-1 overflow-y-auto">
           <div className="container mx-auto max-w-5xl py-6 px-4">
             {!selectedStock ? (
-              <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-gray-400">
-                <svg className="w-16 h-16 mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-muted-foreground">
+                <svg className="w-16 h-16 mb-4 text-muted-foreground/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
                 <p className="text-lg">请选择或搜索一只股票查看资讯</p>
@@ -335,7 +338,7 @@ export default function Home() {
             ) : (
               <>
                 <div className="mb-6">
-                  <h2 className="text-xl font-semibold text-gray-900">
+                  <h2 className="text-xl font-semibold">
                     {selectedStock.stock_name} ({selectedStock.stock_code})
                   </h2>
                 </div>
